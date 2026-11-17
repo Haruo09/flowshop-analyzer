@@ -16,6 +16,8 @@ extern "C" {
  *
  * Supported algorithms:
  *   - "tabu_original" : Unoptimized Insertion-neighborhood Tabu Search
+ *   - "tabu_optimized": Memory-optimized Insertion-neighborhood Tabu Search
+ *   - "tabu_neh"      : NEH-seeded Insertion-neighborhood Tabu Search
  */
 API_EXPORT int solve_pfsp(const char *algo_name, int num_jobs, int num_machines,
                           const int *proc_times_flat, int max_iterations, int tabu_tenure,

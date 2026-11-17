@@ -7,7 +7,7 @@ import numpy as np
 
 from .parser import FlowshopInstance
 
-AVAILABLE_ALGORITHMS = ["tabu_original"]
+AVAILABLE_ALGORITHMS = ["tabu_original", "tabu_optimized", "tabu_neh"]
 
 
 @dataclass
