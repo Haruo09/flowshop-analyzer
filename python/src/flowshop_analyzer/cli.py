@@ -1,3 +1,4 @@
+import csv as csv_module
 from pathlib import Path
 from typing import Optional
 import typer
@@ -175,6 +176,9 @@ def benchmark(
     iterations: int = typer.Option(
         300, "--iterations", "-i", min=1, help="Maximum iterations per instance."
     ),
+    csv: Optional[Path] = typer.Option(
+        None, "--csv", "-c", help="Path to save benchmark metrics (.csv)."
+    ),
 ) -> None:
     """Benchmark one or compare multiple algorithms across all instances in the dataset."""
     instances = load_instances(file)
@@ -193,6 +197,7 @@ def benchmark(
         table.add_column("Runtime (s)", style="blue", justify="right")
 
         total_time = 0.0
+        csv_rows: list[dict] = []
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -210,10 +215,43 @@ def benchmark(
                     f"-{res.improvement_pct:.2f}%",
                     f"{res.elapsed_sec:.4f}",
                 )
+                if csv:
+                    csv_rows.append(
+                        {
+                            "instance": inst.name,
+                            "jobs": inst.num_jobs,
+                            "machines": inst.num_machines,
+                            "initial_makespan": res.initial_makespan,
+                            "best_makespan": res.best_makespan,
+                            "improvement_pct": f"{res.improvement_pct:.2f}",
+                            "runtime_sec": f"{res.elapsed_sec:.4f}",
+                            f"{algo}_runtime_sec": f"{res.elapsed_sec:.4f}",
+                            "speedup": "1.00",
+                        }
+                    )
                 progress.advance(task)
 
         console.print(table)
         console.print(f"[bold]Total C++ Solver Time ({algo}):[/bold] {total_time:.4f}s")
+
+        if csv:
+            csv.parent.mkdir(parents=True, exist_ok=True)
+            fieldnames = [
+                "instance",
+                "jobs",
+                "machines",
+                "initial_makespan",
+                "best_makespan",
+                "improvement_pct",
+                "runtime_sec",
+                f"{algo}_runtime_sec",
+                "speedup",
+            ]
+            with open(csv, mode="w", newline="", encoding="utf-8") as f:
+                writer = csv_module.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(csv_rows)
+            console.print(f"[bold green]Benchmark results saved to CSV:[/bold green] {csv}")
         return
 
     # Multi-algorithm head-to-head comparison mode
@@ -228,6 +266,7 @@ def benchmark(
     table.add_column(f"Speedup (vs {algos[0]})", style="yellow bold", justify="right")
 
     totals = {a: 0.0 for a in algos}
+    csv_rows = []
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -257,6 +296,26 @@ def benchmark(
                 f"{speedup:.2f}x",
             ]
             table.add_row(*row)
+
+            if csv:
+                base_res = run_map[algos[0]]
+                init_ms = base_res.initial_makespan
+                imp_pct = (
+                    ((init_ms - best_ms) / init_ms) * 100.0 if init_ms > 0 else 0.0
+                )
+                row_dict = {
+                    "instance": inst.name,
+                    "jobs": inst.num_jobs,
+                    "machines": inst.num_machines,
+                    "initial_makespan": init_ms,
+                    "best_makespan": best_ms,
+                    "improvement_pct": f"{imp_pct:.2f}",
+                }
+                for a in algos:
+                    row_dict[f"{a}_runtime_sec"] = f"{run_map[a].elapsed_sec:.4f}"
+                row_dict["speedup"] = f"{speedup:.2f}"
+                csv_rows.append(row_dict)
+
             progress.advance(task)
 
     console.print(table)
@@ -270,6 +329,25 @@ def benchmark(
         f"[bold]Total Dataset Runtime:[/bold] {' | '.join(summary_parts)} "
         f"([yellow]{overall_speedup:.2f}x overall speedup[/yellow])"
     )
+
+    if csv:
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = [
+            "instance",
+            "jobs",
+            "machines",
+            "initial_makespan",
+            "best_makespan",
+            "improvement_pct",
+            *[f"{a}_runtime_sec" for a in algos],
+            "speedup",
+        ]
+        with open(csv, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv_module.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(csv_rows)
+        console.print(f"[bold green]Benchmark results saved to CSV:[/bold green] {csv}")
+
 
 
 if __name__ == "__main__":
