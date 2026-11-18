@@ -18,9 +18,10 @@ extern "C" int solve_pfsp(const char *algo_name, int num_jobs, int num_machines,
         return -1;
     }
 
-    // Future variants (e.g., "tabu_optimized", "tabu_neh") register here
     static const std::unordered_map<std::string, SolverAdapter> registry = {
         {"tabu_original", &tabuSearchPFSP},
+        {"tabu_optimized", &tabuSearchOptimizedPFSP},
+        {"tabu_neh", &tabuSearchNEHPFSP},
     };
 
     auto it = registry.find(algo_name);
